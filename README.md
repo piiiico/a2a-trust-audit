@@ -136,6 +136,21 @@ A signed JWT proves who the agent claims to be at issue time. It tells you nothi
 
 This tool exists because someone has to make the gap legible before anyone fixes it.
 
+## In the wild
+
+We pointed the tool at every public A2A agent card we could find. 18 cards. 17 graded F. Averages across the 17 non-AgentLair agents:
+
+| Layer | Average | What's missing |
+|-------|--------:|----------------|
+| L1 Identity | 80.1 | DIDs are absent everywhere; two cards omit a provider block |
+| L2 Authentication | 13.1 | Zero signed cards, zero JWKS, two declare x402 |
+| L3 Authorization | 100.0 | Skills and capabilities are well-declared across the ecosystem |
+| L4 Behavioral Trust | 0.0 | No trust attestation, no audit trail, no monitoring endpoint |
+
+L3 is solved. L1 is mostly solved. L2 is the systemic gap. L4 is empty.
+
+Full leaderboard with per-agent scores: [A2A Trust Leaderboard, May 2026](https://agentlair.dev/blog/a2a-trust-leaderboard-may-2026/).
+
 ## Reference implementation
 
 [AgentLair](https://agentlair.dev) is the L4 reference implementation. It scores A (92%) on its own card. The tool was written against it. If you build a competing implementation that scores higher, file an issue. That's the point.
