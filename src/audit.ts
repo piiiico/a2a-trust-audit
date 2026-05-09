@@ -34,17 +34,22 @@ interface AgentCard {
     tags?: string[];
     examples?: string[];
   }>;
+  // Legacy auth shape (A2A v0.2.5 and earlier):
   authentication?: {
     schemes?: string[];
     description?: string;
     credentials?: unknown;
   };
-  security_schemes?: Record<string, unknown>;
+  // Canonical A2A v1.0 shape:
+  securitySchemes?: Record<string, unknown>;
+  security_schemes?: Record<string, unknown>; // snake-case variant some impls use
   contact?: { email?: string; url?: string };
   provider?: { organization?: string; url?: string };
   // trust extensions
   did?: string;
   jwks_uri?: string;
+  jwks_url?: string;
+  jwksUri?: string;
   trust_attestation?: {
     score?: number;
     level?: string;
@@ -56,7 +61,8 @@ interface AgentCard {
   };
   audit_trail_url?: string;
   audit_trail_url_template?: string;
-  card_signature?: string; // JWS detached signature
+  card_signature?: string; // legacy JWS detached signature (single)
+  signatures?: Array<{ protected?: string; signature?: string; header?: unknown }>; // A2A v1.0
   behavioral_monitoring?: unknown;
   [key: string]: unknown;
 }
@@ -192,6 +198,25 @@ function runChecks(card: AgentCard, _from: string, probe?: AuditResult['probe'])
 
   const add = (c: Omit<Check, 'pass'> & { pass: boolean }) => checks.push(c as Check);
 
+  // Resolve dual-shape fields up front so every check sees one truth.
+  // A2A v1.0 prefers `securitySchemes` (camelCase, map). v0.2.5 used a nested
+  // `authentication.schemes` array. Some impls emit snake_case `security_schemes`.
+  const securitySchemesObj =
+    (card.securitySchemes as Record<string, unknown> | undefined) ||
+    (card.security_schemes as Record<string, unknown> | undefined);
+  const securitySchemesValues = Object.values(securitySchemesObj || {}) as Array<{
+    type?: string;
+    scheme?: string;
+  }>;
+
+  // A2A v1.0: `signatures: AgentCardSignature[]`. Legacy: single `card_signature` (JWS).
+  const hasSignaturesArray = Array.isArray(card.signatures) && card.signatures.length > 0;
+  const hasLegacyCardSignature = !!card.card_signature;
+  const hasCardSignature = hasSignaturesArray || hasLegacyCardSignature;
+
+  // JWKS reference (RFC 7517, AgentLair extension to A2A core)
+  const jwksRef = card.jwks_uri || card.jwks_url || card.jwksUri;
+
   // ── L1: Identity ──
   add({
     id: 'l1-name',
@@ -218,7 +243,7 @@ function runChecks(card: AgentCard, _from: string, probe?: AuditResult['probe'])
     layer: 'L1',
     name: 'Base URL declared',
     pass: !!card.url,
-    severity: 'high',
+    severity: 'critical', // A2A v1.0 marks `AgentCard.url` as REQUIRED
     detail: card.url || 'No URL — agents cannot reach this endpoint.',
   });
 
@@ -236,27 +261,24 @@ function runChecks(card: AgentCard, _from: string, probe?: AuditResult['probe'])
     layer: 'L1',
     name: 'Version specified',
     pass: !!card.version,
-    severity: 'low',
+    severity: 'medium', // A2A v1.0 marks `AgentCard.version` as REQUIRED
     detail: card.version ? `v${card.version}` : 'No version — consumers cannot pin or track changes.',
   });
 
-  add({
-    id: 'l1-schema',
-    layer: 'L1',
-    name: 'Schema version declared',
-    pass: !!card.schema_version,
-    severity: 'medium',
-    detail: card.schema_version
-      ? `Schema v${card.schema_version}`
-      : 'No schema version — interop risk.',
-  });
+  // SUBTRACTED 2026-05-09 (v0.1.1): `l1-schema` removed — A2A v1.0 has no
+  // `schema_version` field at all. The "0.8" sometimes seen in cards
+  // (including AgentLair's) is non-canonical. Spec uses `version` (already
+  // checked above) and `protocolVersion` on `AgentInterface`. Subtraction
+  // over addition: see RUBRIC.md.
 
   add({
     id: 'l1-contact',
     layer: 'L1',
-    name: 'Contact information',
+    // AgentLair extension — A2A v1.0 has no `contact` field. Useful for
+    // vulnerability disclosure but not part of the canonical schema.
+    name: 'Contact information (vulnerability disclosure)',
     pass: !!(card.contact?.email || card.contact?.url),
-    severity: 'medium',
+    severity: 'low',
     detail: card.contact
       ? `Email: ${card.contact.email || '—'}, URL: ${card.contact.url || '—'}`
       : 'No contact info — vulnerability reports have nowhere to go.',
@@ -288,21 +310,35 @@ function runChecks(card: AgentCard, _from: string, probe?: AuditResult['probe'])
   });
 
   // ── L2: Authentication ──
+  // A2A v1.0 prefers top-level `securitySchemes` (map). v0.2.5 used a nested
+  // `authentication.schemes` array. Accept both.
   const schemes = card.authentication?.schemes || [];
+  const hasAuthDeclared = schemes.length > 0 || !!securitySchemesObj;
   add({
     id: 'l2-auth-declared',
     layer: 'L2',
     name: 'Authentication scheme declared',
-    pass: schemes.length > 0 || !!card.security_schemes,
+    pass: hasAuthDeclared,
     severity: 'critical',
     detail: schemes.length > 0
-      ? `Schemes: ${schemes.join(', ')}`
-      : 'No authentication — any caller can interact without proof of identity.',
+      ? `Schemes (legacy authentication.schemes): ${schemes.join(', ')}`
+      : securitySchemesObj
+        ? `securitySchemes (A2A v1.0): ${Object.keys(securitySchemesObj).join(', ')}`
+        : 'No authentication — any caller can interact without proof of identity.',
   });
 
+  // OAuth/OIDC detection: legacy schemes array + v1.0 securitySchemes typed
+  // entries. Per OpenAPI / A2A v1.0, security scheme `type` values include
+  // `oauth2` and `openIdConnect`. The previous `|| !!card.security_schemes`
+  // fallback was over-eager — bearer-only securitySchemes does not imply
+  // OAuth. Subtraction in spirit: removed the false-positive arm.
+  const hasOAuthInSecuritySchemes = securitySchemesValues.some(s => {
+    const t = (s?.type || '').toLowerCase();
+    return t === 'oauth2' || t === 'openidconnect' || t === 'openid';
+  });
   const hasOAuth = schemes.some(s =>
     ['oauth2', 'openid', 'oidc'].includes(s.toLowerCase())
-  ) || !!card.security_schemes;
+  ) || hasOAuthInSecuritySchemes;
   add({
     id: 'l2-oauth',
     layer: 'L2',
@@ -318,10 +354,10 @@ function runChecks(card: AgentCard, _from: string, probe?: AuditResult['probe'])
     id: 'l2-jwks',
     layer: 'L2',
     name: 'JWKS endpoint referenced',
-    pass: !!card.jwks_uri || !!card['jwks_url'],
+    pass: !!jwksRef,
     severity: 'high',
-    detail: card.jwks_uri
-      ? `JWKS: ${card.jwks_uri}`
+    detail: jwksRef
+      ? `JWKS: ${jwksRef}`
       : 'No JWKS reference — consumers cannot verify signed tokens offline.',
   });
 
@@ -329,11 +365,15 @@ function runChecks(card: AgentCard, _from: string, probe?: AuditResult['probe'])
     id: 'l2-card-signed',
     layer: 'L2',
     name: 'Agent card is signed',
-    pass: !!card.card_signature,
+    // A2A v1.0: `signatures: AgentCardSignature[]`. Legacy: single
+    // `card_signature` JWS string. Accept both.
+    pass: hasCardSignature,
     severity: 'critical',
-    detail: card.card_signature
-      ? 'Card has cryptographic signature — integrity verifiable.'
-      : 'UNSIGNED CARD — anyone who controls the endpoint can swap capabilities, skills, or identity claims. This is the #1 gap in A2A.',
+    detail: hasSignaturesArray
+      ? `Card has ${card.signatures!.length} JWS signature(s) (A2A v1.0 \`signatures[]\`) — integrity verifiable.`
+      : hasLegacyCardSignature
+        ? 'Card has cryptographic signature (legacy `card_signature`) — integrity verifiable.'
+        : 'UNSIGNED CARD — anyone who controls the endpoint can swap capabilities, skills, or identity claims. This is the #1 gap in A2A.',
   });
 
   // x402 — strong signal of payment-gated commitment.
@@ -362,7 +402,14 @@ function runChecks(card: AgentCard, _from: string, probe?: AuditResult['probe'])
             : 'No x402 / payment-gating detected. Free endpoints have no caller-side commitment cost.',
   });
 
-  const hasMtls = schemes.some(s => s.toLowerCase().includes('mtls') || s.toLowerCase().includes('mutual'));
+  // mTLS detection: legacy schemes array + v1.0 securitySchemes typed entries.
+  // OpenAPI/A2A v1.0 uses scheme type `mutualTLS` (RFC 8705).
+  const hasMtlsInSecuritySchemes = securitySchemesValues.some(s => {
+    const t = (s?.type || '').toLowerCase();
+    return t === 'mutualtls' || t === 'mtls';
+  });
+  const hasMtls = schemes.some(s => s.toLowerCase().includes('mtls') || s.toLowerCase().includes('mutual'))
+    || hasMtlsInSecuritySchemes;
   add({
     id: 'l2-mtls',
     layer: 'L2',
@@ -387,16 +434,23 @@ function runChecks(card: AgentCard, _from: string, probe?: AuditResult['probe'])
       : 'No skills — consumers cannot scope interactions.',
   });
 
-  const allSkillsHaveIds = skills.every(s => !!s.id);
+  // A2A v1.0 marks `id`, `name`, `description`, and `tags` as REQUIRED on
+  // every AgentSkill. Sharpen the existing check to verify all four — it's
+  // the same rubric question ("can a consumer scope and discover this
+  // capability?") with a more accurate definition.
+  const skillsRequiredFields = (s: { id?: string; name?: string; description?: string; tags?: string[] }) =>
+    !!s.id && !!s.name && !!s.description && Array.isArray(s.tags) && s.tags.length > 0;
+  const allSkillsComplete = skills.every(skillsRequiredFields);
+  const idsCount = skills.filter(s => !!s.id).length;
   add({
     id: 'l3-skill-ids',
     layer: 'L3',
-    name: 'All skills have unique IDs',
-    pass: skills.length === 0 || allSkillsHaveIds,
+    name: 'Skills have required fields (id, name, description, tags)',
+    pass: skills.length === 0 || allSkillsComplete,
     severity: 'medium',
-    detail: allSkillsHaveIds
-      ? 'All skills have IDs.'
-      : 'Some skills lack IDs — cannot reference specific capabilities.',
+    detail: allSkillsComplete
+      ? `All ${skills.length} skills declare id + name + description + tags (A2A v1.0 required fields).`
+      : `${idsCount}/${skills.length} skills have ids; some are missing required fields (id, name, description, tags per A2A v1.0).`,
   });
 
   add({
