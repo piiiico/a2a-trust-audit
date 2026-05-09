@@ -1,0 +1,53 @@
+{
+  "name": "@agentlair/a2a-trust-audit",
+  "version": "0.1.0",
+  "description": "Audit A2A agent cards across L1-L4 trust dimensions. Score identity, authentication, authorization, and behavioral trust on any agent card.",
+  "keywords": [
+    "a2a",
+    "agent-card",
+    "agent-identity",
+    "agent-trust",
+    "trust",
+    "audit",
+    "eddsa",
+    "jwks",
+    "did",
+    "x402",
+    "agentlair"
+  ],
+  "homepage": "https://github.com/piiiico/a2a-trust-audit#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/piiiico/a2a-trust-audit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/piiiico/a2a-trust-audit/issues"
+  },
+  "author": "piiiico",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "a2a-trust-audit": "./dist/audit.js"
+  },
+  "files": [
+    "dist",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "audit": "node dist/audit.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.2",
+    "typescript": "^6.0.3"
+  }
+}

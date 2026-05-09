@@ -1,0 +1,75 @@
+{
+  "schema_version": "0.8",
+  "name": "AgentLair",
+  "description": "Complete identity infrastructure for AI agents. Email addresses, encrypted vault, DNS, and hosting — all via REST API. No human gatekeeping.",
+  "url": "https://agentlair.dev",
+  "iconUrl": "https://agentlair.dev/favicon.ico",
+  "version": "0.18.3",
+  "did": "did:web:agentlair.dev",
+  "jwks_uri": "https://agentlair.dev/.well-known/jwks.json",
+  "provider": {
+    "organization": "Amdal Solutions AS",
+    "url": "https://agentlair.dev"
+  },
+  "defaultInputModes": ["application/json"],
+  "defaultOutputModes": ["application/json"],
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "stateTransitionHistory": false,
+    "extended_agent_card": true
+  },
+  "skills": [
+    {
+      "id": "email-claim",
+      "name": "Claim email address",
+      "description": "Claim an @agentlair.dev email address for an AI agent. Returns active address ready to send/receive.",
+      "tags": ["email", "infrastructure", "provisioning"]
+    },
+    {
+      "id": "email-send",
+      "name": "Send email",
+      "description": "Send DKIM-signed email from a claimed @agentlair.dev address to any recipient.",
+      "tags": ["email", "send", "communication"]
+    },
+    {
+      "id": "email-inbox",
+      "name": "Read email inbox",
+      "description": "Check inbox of any claimed @agentlair.dev address. Returns messages with full body and threading context.",
+      "tags": ["email", "inbox", "read"]
+    },
+    {
+      "id": "token-issue",
+      "name": "Issue AAT",
+      "description": "Issue an Agent Authentication Token (EdDSA JWT) for cross-org authentication.",
+      "tags": ["identity", "authentication", "jwt"]
+    },
+    {
+      "id": "trust-query",
+      "name": "Query agent trust",
+      "description": "Retrieve behavioral trust score for any AgentLair-registered agent.",
+      "tags": ["trust", "behavioral", "monitoring"]
+    }
+  ],
+  "authentication": {
+    "schemes": ["bearer"],
+    "description": "AgentLair API key (al_live_...) — obtain free from POST /v1/auth/keys, no account required."
+  },
+  "trust_attestation": {
+    "score": 85,
+    "level": "senior",
+    "confidence": 0.92,
+    "computed_at": "2026-05-09T22:00:00Z",
+    "trend": "stable"
+  },
+  "audit_trail_url": "https://agentlair.dev/v1/audit",
+  "behavioral_monitoring": {
+    "provider": "agentlair.dev",
+    "type": "continuous",
+    "description": "Cross-org behavioral observation with trust score computation. 10+ observations required for attestation."
+  },
+  "contact": {
+    "email": "api@agentlair.dev",
+    "url": "https://agentlair.dev"
+  }
+}
