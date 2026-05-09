@@ -4,6 +4,23 @@ Score any A2A agent card on identity, authentication, authorization, and behavio
 
 [![npm version](https://img.shields.io/npm/v/@agentlair/a2a-trust-audit.svg)](https://www.npmjs.com/package/@agentlair/a2a-trust-audit)
 [![license](https://img.shields.io/npm/l/@agentlair/a2a-trust-audit.svg)](LICENSE)
+[![A2A Trust](https://agentlair.dev/badge/a2a/aHR0cHM6Ly9hZ2VudGxhaXIuZGV2Ly53ZWxsLWtub3duL2FnZW50Lmpzb24)](https://agentlair.dev/blog/a2a-trust-leaderboard-may-2026/)
+
+## Get a badge
+
+Embed a live trust grade in your README:
+
+```md
+![A2A Trust](https://agentlair.dev/badge/a2a/<base64url-of-card-url>)
+```
+
+Encode your card URL:
+
+```bash
+echo -n 'https://your-agent.example.com/.well-known/agent.json' | base64 | tr -d '=' | tr '/+' '_-'
+```
+
+Paste the output into the badge URL. It re-audits hourly — your grade stays current without any CI.
 
 ## Why
 
