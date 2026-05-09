@@ -1,6 +1,6 @@
 {
   "name": "@agentlair/a2a-trust-audit",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Audit A2A agent cards across L1-L4 trust dimensions. Score identity, authentication, authorization, and behavioral trust on any agent card.",
   "keywords": [
     "a2a",

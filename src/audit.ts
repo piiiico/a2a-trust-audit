@@ -35,10 +35,13 @@ interface AgentCard {
     examples?: string[];
   }>;
   // Legacy auth shape (A2A v0.2.5 and earlier):
+  // Some agents use string arrays: ["bearer", "oauth2"]
+  // Others use object arrays: [{scheme: "bearer", description: "..."}]
   authentication?: {
-    schemes?: string[];
+    schemes?: Array<string | { scheme: string; [key: string]: unknown }>;
     description?: string;
     credentials?: unknown;
+    [key: string]: unknown;
   };
   // Canonical A2A v1.0 shape:
   securitySchemes?: Record<string, unknown>;
@@ -312,7 +315,13 @@ function runChecks(card: AgentCard, _from: string, probe?: AuditResult['probe'])
   // ── L2: Authentication ──
   // A2A v1.0 prefers top-level `securitySchemes` (map). v0.2.5 used a nested
   // `authentication.schemes` array. Accept both.
-  const schemes = card.authentication?.schemes || [];
+  // Normalize legacy schemes: some cards use string arrays ["bearer"],
+  // others use object arrays [{scheme: "bearer", description: "..."}].
+  // Extract to string[] either way.
+  const rawSchemes = card.authentication?.schemes || [];
+  const schemes: string[] = rawSchemes.map(s =>
+    typeof s === 'string' ? s : (s?.scheme ?? '')
+  ).filter(Boolean);
   const hasAuthDeclared = schemes.length > 0 || !!securitySchemesObj;
   add({
     id: 'l2-auth-declared',
