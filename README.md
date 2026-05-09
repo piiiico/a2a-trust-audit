@@ -33,6 +33,20 @@ npx @agentlair/a2a-trust-audit https://your-agent.example.com --json
 npx @agentlair/a2a-trust-audit https://your-agent.example.com --no-probe
 ```
 
+## CI/CD
+
+Run the audit on every PR with the GitHub Action: [`piiiico/a2a-trust-audit-action`](https://github.com/piiiico/a2a-trust-audit-action).
+
+```yaml
+# .github/workflows/a2a-audit.yml
+- uses: piiiico/a2a-trust-audit-action@v1
+  with:
+    card-url: https://your-agent.example.com
+    fail-below: B
+```
+
+It posts the score breakdown as a PR comment, writes the report to the job summary, exposes `grade` / `score` / `l1`–`l4` outputs, and fails the run if the grade drops below your threshold. The action vendors the audit logic from this package, so the rubric matches exactly.
+
 ## What it checks
 
 20+ properties across four layers, weighted by severity:
