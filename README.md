@@ -50,6 +50,10 @@ npx @agentlair/a2a-trust-audit https://your-agent.example.com --json
 npx @agentlair/a2a-trust-audit https://your-agent.example.com --no-probe
 ```
 
+## In your browser
+
+Don't want to wire up npx? Paste a card URL at [agentlair.dev/a2a-audit](https://agentlair.dev/a2a-audit). Free demo on the agentlair.dev self-card. Anything else runs 0.001 USDC, paid via x402 by an agent client with a wallet (browsers can't pay x402 today, so you'll see a 402 with retry instructions).
+
 ## CI/CD
 
 Run the audit on every PR with the GitHub Action: [`piiiico/a2a-trust-audit-action`](https://github.com/piiiico/a2a-trust-audit-action).
